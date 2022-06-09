@@ -16,17 +16,14 @@ function App() {
 
   let cols: number = 20;
   let rows: number = 20;
-  var grid: Array<Array<Node>> = new Array(cols);
+  let grid: Array<Array<Node>> = new Array(cols);
   let openSet: Array<Node> = [];
-  let closedSet: Array<Node> = []; 
+  let closedSet: Array<Node> = [];
   let path: Array<Node> = [];
-  let noSolution = false;
-  let start: Node;
-  let end: Node;
-  let solFound: boolean = false;
+  let start: [number, number] = [0, 0];
+  let end: [number, number] = [cols - 1, rows - 1];
 
-  class Node
-  {
+  class Node {
     readonly x: number = 0;
     readonly y: number = 0;
     f: number = Infinity;
@@ -35,23 +32,23 @@ function App() {
     neighbours: Array<Node> = [];
     previous?: Node = undefined;
     wall: boolean = false;
-    
-    constructor(i: number, j: number) {
-      this.x = i;
-      this.y = j;
+
+    constructor(pos: [number, number]) {
+      this.x = pos[0];
+      this.y = pos[1];
     }
 
     show(p5: p5Types, color: p5Types.Color): void {
       let w: number = p5.width / cols;
-      let h: number = p5.height / rows;   
+      let h: number = p5.height / rows;
       p5.fill(color);
       p5.stroke(0);
       p5.rect(this.x * w, this.y * h, w, h);
     }
-    
+
     addNeighbours(grid: Array<Array<Node>>): void {
-      let x:number = this.x;
-      let y:number = this.y;
+      let x: number = this.x;
+      let y: number = this.y;
       if (x < cols - 1) {
         this.neighbours.push(grid[x + 1][y]);
         if (y > 0) {
@@ -77,20 +74,20 @@ function App() {
     }
   };
 
-  
+
   const setup = (p5: p5Types, canvasParentRef: Element) => {
-    p5.createCanvas(400,400).parent(
+    p5.createCanvas(400, 400).parent(
       canvasParentRef,
     );
-    
+
     for (var i = 0; i < cols; i++) {
       grid[i] = new Array(rows);
     }
     for (var i = 0; i < cols; i++) {
       for (var j = 0; j < rows; j++) {
-        grid[i][j] = new Node(i, j);
+        grid[i][j] = new Node([i, j]);
       }
-    } 
+    }
 
     for (const row of grid) {
       for (const n of row) {
@@ -98,24 +95,27 @@ function App() {
         n.wall = Math.random() < 0.3;
       }
     }
-    start = grid[0][0];
-    end = grid[cols - 1][rows - 1];
-    start.f = heuristic(p5, start, end);
-    start.wall = false;
-    end.wall = false;
-    openSet.push(start);
+    let startNode = grid[start[0]][start[1]];
+    let endNode = grid[end[0]][end[1]];
+    startNode.f = heuristic(p5, startNode, endNode);
+    startNode.wall = false;
+    endNode.wall = false;
+    openSet.push(startNode);
   };
 
   const draw = (p5: p5Types) => {
     p5.background(128);
-    if (openSet.length > 0 && !solFound) {//searching
+    if (openSet.length > 0) {//searching
+
+      // Find best candidate
       let current: Node = openSet[0];
       for (const n of openSet) {
         if (n.f < current.f) {
           current = n;
         }
       }
-      
+
+      // Live path visualization
       path = [];
       var temp: Node = current;
       path.push(temp);
@@ -124,60 +124,58 @@ function App() {
         temp = temp.previous;
       }
 
-      if (current === end) {
+      // Check if reached goal
+      if (current === grid[end[0]][end[1]]) {
         console.log("Done!");
-        solFound = true;
+        p5.noLoop();
       }
-      if (solFound) { } else {
-        removeFromArray(openSet, current);
-        closedSet.push(current);
-      
-        for (const neighbour of current.neighbours) {
-          if (!neighbour.wall && !closedSet.includes(neighbour)) {
-            var tempG = current.g + 1//p5.dist(current.x, current.y, neighbour.x, neighbour.y);
-            var newPath = false;
-            if (openSet.includes(neighbour)) {
-              if (tempG < neighbour.g) {
-                neighbour.g = tempG;
-                newPath = true;
-              }
-            } else {
+
+      removeFromArray(openSet, current);
+      closedSet.push(current);
+
+      for (const neighbour of current.neighbours) {
+        if (!neighbour.wall && !closedSet.includes(neighbour)) {
+          var tempG = current.g + 1//p5.dist(current.x, current.y, neighbour.x, neighbour.y);
+          var newPath = false;
+          if (openSet.includes(neighbour)) {
+            if (tempG < neighbour.g) {
               neighbour.g = tempG;
               newPath = true;
-              openSet.push(neighbour);
             }
-            if (newPath) {
-              neighbour.h = heuristic(p5, neighbour, end);
-              neighbour.f = neighbour.g + neighbour.h;
-              neighbour.previous = current;
-            }
+          } else {
+            neighbour.g = tempG;
+            newPath = true;
+            openSet.push(neighbour);
+          }
+          if (newPath) {
+            neighbour.h = heuristic(p5, neighbour, grid[end[0]][end[1]]);
+            neighbour.f = neighbour.g + neighbour.h;
+            neighbour.previous = current;
           }
         }
       }
     } else {
-      if (!solFound && openSet.length === 0) {
-        console.log("No solution")
-        p5.noLoop();
-      }
+      console.log("No solution")
+      p5.noLoop();
     }
 
+    // Draw stuff
     for (const row of grid) {
       for (const n of row) {
         if (n.wall) {
-          n.show(p5, p5.color(0));     
+          n.show(p5, p5.color(0));
         } else {
           n.show(p5, p5.color(255));
         }
       }
     }
-    for (const n of closedSet) { 
+    for (const n of closedSet) {
       n.show(p5, p5.color(255, 0, 0));
     }
-    if (!noSolution) {
-      for (const n of openSet) {
-        n.show(p5, p5.color(0, 255, 0));
-      }
+    for (const n of openSet) {
+      n.show(p5, p5.color(0, 255, 0));
     }
+
     for (const n of path) {
       n.show(p5, p5.color(0, 0, 255));
     }
