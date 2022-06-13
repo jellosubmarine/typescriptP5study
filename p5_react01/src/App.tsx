@@ -45,7 +45,7 @@ function App() {
       p5.stroke(0);
       p5.rect(this.x * w, this.y * h, w, h);
     }
-
+    //make this not preprocessed for shadow calcs
     addNeighbours(grid: Array<Array<Node>>): void {
       let x: number = this.x;
       let y: number = this.y;
@@ -135,6 +135,8 @@ function App() {
 
       for (const neighbour of current.neighbours) {
         if (!neighbour.wall && !closedSet.includes(neighbour)) {
+          // add time here based on distance
+          //add costbetween here
           var tempG = current.g + 1//p5.dist(current.x, current.y, neighbour.x, neighbour.y);
           var newPath = false;
           if (openSet.includes(neighbour)) {
