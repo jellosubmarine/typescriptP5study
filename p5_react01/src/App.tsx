@@ -5,6 +5,22 @@ import { createNoise2D } from 'simplex-noise';
 
 const noise2D = createNoise2D();
 
+function easeInQuint(x: number): number {
+  return x * x * x * x;
+}
+
+function easeInOutCubic(x: number): number {
+  return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+}
+
+function easeInCirc(x: number): number {
+  return 1 - Math.sqrt(1 - Math.pow(x, 2));
+}
+
+function easeInSine(x: number): number {
+  return 1 - Math.cos((x * Math.PI) / 2);
+}
+
 class State {
   x: number = 0;
   y: number = 0;
@@ -14,7 +30,8 @@ class State {
 class Environment {
   gridSize: number = 2;
   grid: Array<Array<number>>;
-  threshold: number = 0.7;
+  threshold: number = 0.5;
+  mountainFrequencyMultiplier: number = 5;
 
   constructor(gridSize: number) {
     this.gridSize = gridSize;
@@ -24,20 +41,26 @@ class Environment {
     }
     for (var i = 0; i < gridSize; i++) {
       for (var j = 0; j < gridSize; j++) {
-        var value = (noise2D(i, j) + 1) / 2.0;
+        var value = (noise2D(i / gridSize * this.mountainFrequencyMultiplier, j / gridSize * this.mountainFrequencyMultiplier) + 1) / 2.0;
+        value = easeInSine(value);
         if (value > this.threshold) {
           this.grid[i][j] = 1;
         }
         else {
           this.grid[i][j] = 0;
         }
-        // this.grid[i][j] = value;
       }
     }
   }
 
-  checkOOB(i: number, j: number) {
-
+  isOOB(i: number, j: number) {
+    if (i < 0 || i >= this.gridSize) {
+      return true;
+    }
+    if (j < 0 || j >= this.gridSize) {
+      return true;
+    }
+    return false;
   }
 
   costBetween(startState: State, endState: State) {
@@ -65,7 +88,7 @@ class PathPlanner {
 
 
 function App() {
-  let gridSize: number = 50;
+  let gridSize: number = 100;
   let environment = new Environment(gridSize);
   const setup = (p5: p5Types, canvasParentRef: Element) => {
     p5.createCanvas(800, 800).parent(
